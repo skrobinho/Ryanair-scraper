@@ -7,6 +7,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 import datetime
 from datetime import date
 import time
+import re
+import requests
+import pandas as pd
+import numpy as np
 
 class Ryanair_webdriver():
     #TODO: add Firefox, Safari, Edge webdrivers
@@ -61,7 +65,7 @@ class Ryanair_webdriver():
         
         return air_connections
 
-    def get_flights(self, air_connections):
+    def get_flights(self, air_connections, main_currency):
         left_limit = input("Specify left limit (YYYY-MM-DD):")
         right_limit = input("Specify right limit (YYYY-MM-DD):")
         min_days = input("Specify minimum nubmer of days:")
@@ -76,7 +80,7 @@ class Ryanair_webdriver():
         kids = int(kids)
         toddlers = input("Number of toddlers:")
         toddlers = int(toddlers)
-        flight_data = {"Index" : [], "From" : [], "To": [], "Date" : [], "Departure hour" : [], "Arrival hour" : [], "Price" : [], "Combined price" : [], "Currency" : []}
+        flights_data = {"Index" : [], "From" : [], "To": [], "Date" : [], "Departure hour" : [], "Arrival hour" : [], "Trip length" : [], "Price" : [], "Combined price" : [], "Currency" : []}
         for air_connection in air_connections:
             try:
                 modify_date = self.driver.find_element_by_xpath('//flights-trip-details[@class="ng-tns-c55-3 ng-star-inserted"]//div/div//button')
@@ -189,46 +193,93 @@ class Ryanair_webdriver():
                             passengers_picker[3].click()
                     search = self.driver.find_element_by_xpath('//fsw-flight-search-widget//div//div//div/button')
                     search.click()
-                    prices = self.driver.find_elements_by_xpath('//ry-price//span')
-                    departure_price = ''
-                    for i in range(1,4):
-                        departure_price += prices[i].text
-                    return_price = ''
-                    for i in range(5,8):
-                        return_price += prices[i].text
-                    departure_price = float(departure_price.replace(',', '.'))
-                    return_price = float(return_price.replace(',', '.'))
-                    combined_price = departure_price + return_price
-                    currency = prices[0].text
+                    departure_prices = self.driver.find_elements_by_xpath('//flight-card[@data-e2e="flight-card--outbound"]//flight-price//span[@data-e2e="flight-card-price"]')
+                    return_prices = self.driver.find_elements_by_xpath('//flight-card[@data-e2e="flight-card--inbound"]//flight-price//span[@data-e2e="flight-card-price"]')
 
-                    hours = self.driver.find_elements_by_xpath('//flight-info//div//span[@class="h2"]')
-                    first_way_departure_hour = hours[0].text
-                    first_way_arrival_hour = hours[1].text
-                    second_way_departure_hour = hours[2].text
-                    second_way_arrival_hour = hours[3].text
+                    first_way_hours = self.driver.find_elements_by_xpath('//flight-card[@data-e2e="flight-card--outbound"]//flight-info//div//span[@class="h2"]')
+                    second_way_hours = self.driver.find_elements_by_xpath('//flight-card[@data-e2e="flight-card--inbound"]//flight-info//div//span[@class="h2"]')
                     
-                    flight_data["From"].append(air_connection[0])
-                    flight_data["To"].append(air_connection[1])
-                    flight_data["Date"].append(departure_date)
-                    flight_data["Departure hour"].append(first_way_departure_hour)
-                    flight_data["Arrival hour"].append(first_way_arrival_hour)
-                    flight_data["Price"].append(departure_price)
-                    flight_data["Combined price"].append(combined_price)
-                    flight_data["Currency"].append(currency)
+                    for i in range(int(len(first_way_hours) / 2)):
+                        for j in range(int(len(second_way_hours) / 2)):
+                            try:
+                                departure_price = departure_prices[i].text
+                                departure_price = list(filter(None, re.split('(\d*\D+\d+)', departure_price)))
+                                departure_price = [x.replace(" ", "") for x in departure_price]
+                                currency = departure_price[1]
+                                departure_price = departure_price[0]
+                                departure_price = float(departure_price.replace(',', '.'))
 
-                    flight_data["From"].append(air_connection[1])
-                    flight_data["To"].append(air_connection[0])
-                    flight_data["Date"].append(return_date)
-                    flight_data["Departure hour"].append(second_way_departure_hour)
-                    flight_data["Arrival hour"].append(second_way_arrival_hour)
-                    flight_data["Price"].append(return_price)
-                    flight_data["Combined price"].append(combined_price)
-                    flight_data["Currency"].append(currency)
-        indexes = list(range(1, int(len(flight_data["From"]) / 2) + 1)) * 2
+                                return_price = return_prices[j].text
+                                return_price = list(filter(None, re.split('(\d*\D+\d+)', return_price)))
+                                return_price = [x.replace(" ", "") for x in return_price]
+                                return_price = return_price[0]
+                                return_price = float(return_price.replace(',', '.'))
+
+                                combined_price = departure_price + return_price
+                            except IndexError:
+                                departure_price = np.nan
+                                return_price = np.nan
+                                combined_price = np.nan
+                                currency = np.nan
+
+                            first_way_departure_hour = first_way_hours[i*2].text
+                            first_way_arrival_hour = first_way_hours[i*2+1].text
+                            second_way_departure_hour = second_way_hours[j*2].text
+                            second_way_arrival_hour = second_way_hours[j*2+1].text
+
+                            length_in_days = (datetime.datetime.strptime(return_date, '%Y-%m-%d') - datetime.datetime.strptime(departure_date, '%Y-%m-%d')).days
+
+                            flights_data["From"].append(air_connection[0])
+                            flights_data["To"].append(air_connection[1])
+                            flights_data["Date"].append(departure_date)
+                            flights_data["Departure hour"].append(first_way_departure_hour)
+                            flights_data["Arrival hour"].append(first_way_arrival_hour)
+                            flights_data["Trip length"].append(length_in_days)
+                            flights_data["Price"].append(departure_price)
+                            flights_data["Combined price"].append(combined_price)
+                            flights_data["Currency"].append(currency)
+                            flights_data["From"].append(air_connection[1])
+                            flights_data["To"].append(air_connection[0])
+                            flights_data["Date"].append(return_date)
+                            flights_data["Departure hour"].append(second_way_departure_hour)
+                            flights_data["Arrival hour"].append(second_way_arrival_hour)
+                            flights_data["Trip length"].append(length_in_days)
+                            flights_data["Price"].append(return_price)
+                            flights_data["Combined price"].append(combined_price)
+                            flights_data["Currency"].append(currency)
+
+        indexes = list(range(1, int(len(flights_data["From"]) / 2) + 1)) * 2
         indexes.sort()
-        flight_data["Index"] = indexes
+        flights_data["Index"] = indexes
+        flights_df = pd.DataFrame(flights_data)
+        flights_df = flights_df.dropna()
+        flights_df["Currency"] = flights_df["Currency"].str.lower()
+        currency_dict = {"kč" : "CZK", "dhs" : "MAD", "nkr" : "NOK", "zł" : "PLN", "sfr" : "CHF", "kr" : "SEK", "ft" : "HUF", "£" : "GBP", "€" : "EUR"}
+        flights_df = flights_df.replace({"Currency" : currency_dict})
 
-        return flight_data
+        currency_rates = self.get_currency_rates()
+        flights_df["Price"] = flights_df.apply(lambda row: self.currency_convert(currency_rates, row['Currency'], main_currency, row["Price"]), axis=1)
+        flights_df["Combined price"] = flights_df.apply(lambda row: self.currency_convert(currency_rates, row['Currency'], main_currency, row["Combined price"]), axis=1)
+        flights_df["Currency"] = main_currency
+        flights_df = flights_df.set_index(["Index", "Combined price", "Trip length", "From"]).sort_values(by=["Combined price", "Index"])
+
+        return flights_df
+
+    def get_currency_rates(self):
+        exchangerate_data = requests.get(f'https://api.exchangerate-api.com/v4/latest/EUR').json()
+        rates = exchangerate_data['rates']
+        return rates
+
+    def currency_convert(self, rates, from_currency, to_currency, amount):
+        if from_currency != 'EUR':
+            amount = amount / rates[from_currency]
+        return round(amount * rates[to_currency], 2)
+
+    def save_as_csv(self, flights_df, path='./flights.csv'):
+        return flights_df.to_csv(path)
+
+    def save_as_excel(self, flights_df, path='./flights.xlsx'):
+        return flights_df.to_excel(path)
 
     def quit_driver(self):
         self.driver.quit()
