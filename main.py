@@ -3,7 +3,7 @@ import ryanair_gui
 def main():
     ryanair_webdriver = ryanair_gui.RyanairWebdriver()
     ryanair_webdriver.open_website()
-    flights_df = ryanair_webdriver.get_flights('EUR')
+    flights_df = ryanair_webdriver.get_flights(main_currency='EUR')
     ryanair_webdriver.save_as_excel(flights_df)
     ryanair_webdriver.quit_driver()
 
