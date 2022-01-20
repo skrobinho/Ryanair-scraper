@@ -41,6 +41,7 @@ class RyanairWebdriver():
         self.toddlers = None
         self.flights_df = pd.DataFrame
 
+    #TODO: add WizzAir scrapper
     def open_website(self):
         """Open ryanair website"""
         self.driver.get("https://www.ryanair.com/")
@@ -121,6 +122,7 @@ class RyanairWebdriver():
         clear_selection.click()
         airports = self.driver.find_elements_by_xpath('//fsw-airport-item//span//span')
         airports_list = [airport.text for airport in airports]
+        airports_list.sort()
         # fill departures listbox
         for airport in airports_list:
             self.departure_airports_listbox.insert(tk.END, airport)
@@ -136,6 +138,7 @@ class RyanairWebdriver():
                 self.departure_airports_listbox.get(i)
                 for i in self.departure_airports_listbox.curselection()
                 ]
+            self.departure_airports.sort()
             # fill selected departures listbox
             for airport in self.departure_airports:
                 self.selected_departure_airports_listbox.insert(tk.END, airport)
@@ -145,8 +148,11 @@ class RyanairWebdriver():
                 clear_selection = self.driver.find_element_by_xpath('//fsw-airports-list//button')
                 clear_selection.click()
                 input_departure.send_keys(dep_airport)
-                departure_airport = self.driver.find_element_by_xpath('//fsw-airport-item')
-                departure_airport.click()
+                dep_airports = self.driver.find_elements_by_xpath('//fsw-airport-item')
+                for departure_airport in dep_airports:
+                    if dep_airport == departure_airport.text:
+                        departure_airport.click()
+                        break
                 input_destination = self.driver.find_element_by_id('input-button__destination')
                 input_destination.click()
                 destination_airports = self.driver.find_elements_by_xpath(
@@ -159,6 +165,7 @@ class RyanairWebdriver():
                 for airport in destination_airports:
                     if airport.text not in self.destinations_list:
                         self.destinations_list.append(airport.text)
+            self.destinations_list.sort()
             # fill destinations listbox
             for airport in self.destinations_list:
                 self.destination_airports_listbox.insert(tk.END, airport)
@@ -180,6 +187,7 @@ class RyanairWebdriver():
                 [key, value] for key in self.selected_connections.keys()
                 for value in self.selected_connections[key]
                 ]
+            destinations.sort()
             for airport in destinations:
                 self.selected_destination_airports_listbox.insert(tk.END, airport)
         
@@ -330,8 +338,16 @@ class RyanairWebdriver():
                         input_departure.send_keys(air_connection[0])
                     elif idx == 1:
                         input_departure.send_keys(air_connection[1])
-                    departure_airport = self.driver.find_element_by_xpath('//fsw-airport-item')
-                    departure_airport.click()
+                    dep_airports = self.driver.find_elements_by_xpath(
+                        '//fsw-airport-item//span//span'
+                        )
+                    for departure_airport in dep_airports:
+                        if idx == 0 and (air_connection[0] == departure_airport.text):
+                            departure_airport.click()
+                            break
+                        elif idx == 1 and (air_connection[1] == departure_airport.text):
+                            departure_airport.click()
+                            break
                     input_destination = self.driver.find_element_by_id('input-button__destination')
                     input_destination.click()
                     try:
@@ -345,11 +361,17 @@ class RyanairWebdriver():
                         input_destination.send_keys(air_connection[1])
                     elif idx == 1:
                         input_destination.send_keys(air_connection[0])
-                    destination_airport = self.driver.find_element_by_xpath(
+                    dest_airports = self.driver.find_elements_by_xpath(
                         '//fsw-airport-item//span[@data-ref="airport-item__name"]' \
                             '[not(contains(@data-id,"ANY"))]'
                         )
-                    destination_airport.click()
+                    for destination_airport in dest_airports:
+                        if idx == 0 and (air_connection[1] == destination_airport.text):
+                            destination_airport.click()
+                            break
+                        elif idx == 1 and (air_connection[0] == destination_airport.text):
+                            destination_airport.click()
+                            break
                     months = self.driver.find_elements_by_xpath(
                         '//month-toggle//div//div//div//div//div[contains(@class,"m-toggle__month")]'
                         )
