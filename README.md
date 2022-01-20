@@ -15,3 +15,11 @@ Webdriver searches for air connetions between departure and destination airports
 Prices are converted to one, choosen currency - current exchange rates are downloaded using ExchangeRate-API.
 ### 4. Conversion to CSV/XLSX file.
 Data is saved as a *.csv or *.xlsx format and optionally automatically opened.
+### Example
+Attached example contains data for:
+- Departure airports: Alicante, Barcelona-El Prat
+- Destination airports: London-Luton, London-Stansted
+- Departure data range: 2022-02-10 - 2022-02-14
+- Minimum number of days: 5
+- Maximum number of days: 7
+- Number of passengers: 1 adult
